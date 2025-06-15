@@ -1,6 +1,7 @@
 import Phaser from 'phaser'
 import { StageManager } from '../stages/StageManager'
-import { StageData } from '../stages/StageData'
+import { BaseStage } from '../stages/BaseStage'
+import { Stage001 } from '../stages/Stage001/Stage001'
 
 export default class GameScene extends Phaser.Scene {
   private player!: Phaser.Physics.Arcade.Sprite
@@ -18,15 +19,18 @@ export default class GameScene extends Phaser.Scene {
   }
   private deceleration = 300  // 減速度
   private acceleration = 600  // 加速度
-  private stageManager = new StageManager()
-  private currentStage!: StageData
+  private stageManager!: StageManager
+  private currentStage!: BaseStage
   private stageText!: Phaser.GameObjects.Text
+  private platformCollider?: Phaser.Physics.Arcade.Collider
+  private stageColliders: Phaser.Physics.Arcade.Collider[] = []
 
   constructor() {
     super({ key: 'GameScene' })
   }
 
   preload() {
+    this.stageManager = new StageManager(this)
     this.currentStage = this.stageManager.getCurrentStage()
     this.updateBackgroundColor()
     this.createPlayerSprite()
@@ -39,6 +43,8 @@ export default class GameScene extends Phaser.Scene {
     this.setupControls()
     this.setupCollisions()
     this.createUI()
+    this.currentStage.createGimmicks()
+    this.setupStageSpecificCollisions()
   }
 
   private setupControls() {
@@ -86,6 +92,7 @@ export default class GameScene extends Phaser.Scene {
 
   update() {
     this.handleInput()
+    this.stageManager.updateCurrentStage()
     
     // 地面に触れたらジャンプカウントリセット
     if (this.player.body!.touching.down) {
@@ -151,7 +158,7 @@ export default class GameScene extends Phaser.Scene {
 
   private createPlatformSprite() {
     const graphics = this.add.graphics()
-    graphics.fillStyle(this.currentStage.platformColor)
+    graphics.fillStyle(this.currentStage.getConfig().platformColor)
     graphics.fillRect(0, 0, 400, 32)
     graphics.generateTexture('ground', 400, 32)
     graphics.destroy()
@@ -159,12 +166,7 @@ export default class GameScene extends Phaser.Scene {
 
   private createPlatforms() {
     this.platforms = this.physics.add.staticGroup()
-    
-    // 現在のステージのプラットフォーム配置を使用
-    this.currentStage.platforms.forEach(platformData => {
-      const platform = this.platforms.create(platformData.x, platformData.y, 'ground')
-      platform.setScale(platformData.scaleX, platformData.scaleY).refreshBody()
-    })
+    this.currentStage.createPlatforms(this.platforms)
   }
 
   private createPlayer() {
@@ -174,12 +176,19 @@ export default class GameScene extends Phaser.Scene {
   }
 
   private setupCollisions() {
-    this.physics.add.collider(this.player, this.platforms)
+    // 既存のコライダーを削除
+    if (this.platformCollider) {
+      this.platformCollider.destroy()
+    }
+    
+    // 新しいコライダーを作成
+    this.platformCollider = this.physics.add.collider(this.player, this.platforms)
   }
 
   private createUI() {
+    const config = this.currentStage.getConfig()
     this.stageText = this.add.text(16, 16, 
-      `Stage ${this.currentStage.id}: ${this.currentStage.name}`, 
+      `Stage ${config.id}: ${config.name}`, 
       {
         fontSize: '18px',
         color: '#333333',
@@ -201,11 +210,11 @@ export default class GameScene extends Phaser.Scene {
   }
 
   private updateBackgroundColor() {
-    this.cameras.main.setBackgroundColor(this.currentStage.backgroundColor)
+    this.cameras.main.setBackgroundColor(this.currentStage.getConfig().backgroundColor)
   }
 
   private changeStage(direction: number) {
-    let newStage: StageData | null = null
+    let newStage: BaseStage | null = null
     
     if (direction > 0) {
       newStage = this.stageManager.nextStage()
@@ -215,7 +224,53 @@ export default class GameScene extends Phaser.Scene {
     
     if (newStage) {
       this.currentStage = newStage
-      this.scene.restart() // シーンを再起動してステージを更新
+      this.reloadStage()
+    }
+  }
+
+  private reloadStage() {
+    // 既存のプラットフォームを削除
+    this.platforms.clear(true, true)
+    
+    // 新しいステージの背景色に更新
+    this.updateBackgroundColor()
+    
+    // 新しいプラットフォームテクスチャを作成
+    this.createPlatformSprite()
+    
+    // 新しいプラットフォームを作成
+    this.createPlatforms()
+    
+    // 衝突判定を再設定
+    this.setupCollisions()
+    
+    // プレイヤーを初期位置に戻す
+    this.player.setPosition(100, 450)
+    this.player.setVelocity(0, 0)
+    
+    // 新しいステージのギミックを作成
+    this.currentStage.createGimmicks()
+    
+    // ステージ固有の衝突判定を設定
+    this.setupStageSpecificCollisions()
+    
+    // UIを更新
+    const config = this.currentStage.getConfig()
+    this.stageText.setText(`Stage ${config.id}: ${config.name}`)
+  }
+
+  private setupStageSpecificCollisions() {
+    // 既存のステージ固有コライダーを削除
+    this.stageColliders.forEach(collider => collider.destroy())
+    this.stageColliders = []
+    
+    // Stage001の動くプラットフォームとの衝突判定
+    if (this.currentStage instanceof Stage001) {
+      const movingPlatform = this.currentStage.getMovingPlatform()
+      if (movingPlatform) {
+        const collider = this.physics.add.collider(this.player, movingPlatform)
+        this.stageColliders.push(collider)
+      }
     }
   }
 }
