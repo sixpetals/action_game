@@ -110,7 +110,7 @@ export default class GameScene extends Phaser.Scene {
 
   private createPlayerSprite() {
     const graphics = this.add.graphics()
-    graphics.fillStyle(0xff0000)
+    graphics.fillStyle(0xFFB3E6) // パステルピンク
     graphics.fillRect(0, 0, 32, 48)
     graphics.generateTexture('player', 32, 48)
     graphics.destroy()
@@ -118,7 +118,7 @@ export default class GameScene extends Phaser.Scene {
 
   private createPlatformSprite() {
     const graphics = this.add.graphics()
-    graphics.fillStyle(0x00ff00)
+    graphics.fillStyle(0xD4C4FB) // パステルパープル
     graphics.fillRect(0, 0, 400, 32)
     graphics.generateTexture('ground', 400, 32)
     graphics.destroy()

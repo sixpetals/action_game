@@ -6,7 +6,7 @@ const config: Phaser.Types.Core.GameConfig = {
   width: 800,
   height: 600,
   parent: 'game-container',
-  backgroundColor: '#87CEEB',
+  backgroundColor: '#E6F3FF', // パステルブルー（薄い空色）
   scale: {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
