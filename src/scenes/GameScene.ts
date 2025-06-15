@@ -1,4 +1,6 @@
 import Phaser from 'phaser'
+import { StageManager } from '../stages/StageManager'
+import { StageData } from '../stages/StageData'
 
 export default class GameScene extends Phaser.Scene {
   private player!: Phaser.Physics.Arcade.Sprite
@@ -10,16 +12,23 @@ export default class GameScene extends Phaser.Scene {
   private keyStates = {
     A: false,
     D: false,
-    W: false
+    W: false,
+    Q: false, // ステージ切り替え用
+    E: false  // ステージ切り替え用
   }
   private deceleration = 300  // 減速度
   private acceleration = 600  // 加速度
+  private stageManager = new StageManager()
+  private currentStage!: StageData
+  private stageText!: Phaser.GameObjects.Text
 
   constructor() {
     super({ key: 'GameScene' })
   }
 
   preload() {
+    this.currentStage = this.stageManager.getCurrentStage()
+    this.updateBackgroundColor()
     this.createPlayerSprite()
     this.createPlatformSprite()
   }
@@ -29,6 +38,7 @@ export default class GameScene extends Phaser.Scene {
     this.createPlayer()
     this.setupControls()
     this.setupCollisions()
+    this.createUI()
   }
 
   private setupControls() {
@@ -44,6 +54,12 @@ export default class GameScene extends Phaser.Scene {
         case 'w':
           this.keyStates.W = true
           break
+        case 'q':
+          this.keyStates.Q = true
+          break
+        case 'e':
+          this.keyStates.E = true
+          break
       }
     })
 
@@ -57,6 +73,12 @@ export default class GameScene extends Phaser.Scene {
           break
         case 'w':
           this.keyStates.W = false
+          break
+        case 'q':
+          this.keyStates.Q = false
+          break
+        case 'e':
+          this.keyStates.E = false
           break
       }
     })
@@ -106,6 +128,17 @@ export default class GameScene extends Phaser.Scene {
       this.jumpCount++
       this.keyStates.W = false // 一回だけジャンプ
     }
+
+    // ステージ切り替え
+    if (this.keyStates.Q) {
+      this.changeStage(-1) // 前のステージ
+      this.keyStates.Q = false
+    }
+    
+    if (this.keyStates.E) {
+      this.changeStage(1) // 次のステージ
+      this.keyStates.E = false
+    }
   }
 
   private createPlayerSprite() {
@@ -118,7 +151,7 @@ export default class GameScene extends Phaser.Scene {
 
   private createPlatformSprite() {
     const graphics = this.add.graphics()
-    graphics.fillStyle(0xD4C4FB) // パステルパープル
+    graphics.fillStyle(this.currentStage.platformColor)
     graphics.fillRect(0, 0, 400, 32)
     graphics.generateTexture('ground', 400, 32)
     graphics.destroy()
@@ -127,11 +160,11 @@ export default class GameScene extends Phaser.Scene {
   private createPlatforms() {
     this.platforms = this.physics.add.staticGroup()
     
-    this.platforms.create(400, 568, 'ground').setScale(2, 1).refreshBody()
-    
-    this.platforms.create(600, 400, 'ground').setScale(0.5, 1).refreshBody()
-    this.platforms.create(50, 250, 'ground').setScale(0.5, 1).refreshBody()
-    this.platforms.create(750, 220, 'ground').setScale(0.5, 1).refreshBody()
+    // 現在のステージのプラットフォーム配置を使用
+    this.currentStage.platforms.forEach(platformData => {
+      const platform = this.platforms.create(platformData.x, platformData.y, 'ground')
+      platform.setScale(platformData.scaleX, platformData.scaleY).refreshBody()
+    })
   }
 
   private createPlayer() {
@@ -142,5 +175,47 @@ export default class GameScene extends Phaser.Scene {
 
   private setupCollisions() {
     this.physics.add.collider(this.player, this.platforms)
+  }
+
+  private createUI() {
+    this.stageText = this.add.text(16, 16, 
+      `Stage ${this.currentStage.id}: ${this.currentStage.name}`, 
+      {
+        fontSize: '18px',
+        color: '#333333',
+        backgroundColor: '#ffffff',
+        padding: { x: 8, y: 4 }
+      }
+    )
+    
+    // 操作説明
+    this.add.text(16, 50, 
+      'WASD: Move/Jump  Q/E: Change Stage', 
+      {
+        fontSize: '14px',
+        color: '#333333',
+        backgroundColor: '#ffffff',
+        padding: { x: 8, y: 4 }
+      }
+    )
+  }
+
+  private updateBackgroundColor() {
+    this.cameras.main.setBackgroundColor(this.currentStage.backgroundColor)
+  }
+
+  private changeStage(direction: number) {
+    let newStage: StageData | null = null
+    
+    if (direction > 0) {
+      newStage = this.stageManager.nextStage()
+    } else {
+      newStage = this.stageManager.previousStage()
+    }
+    
+    if (newStage) {
+      this.currentStage = newStage
+      this.scene.restart() // シーンを再起動してステージを更新
+    }
   }
 }
