@@ -12,6 +12,8 @@ export default class GameScene extends Phaser.Scene {
     D: false,
     W: false
   }
+  private deceleration = 300  // 減速度
+  private acceleration = 600  // 加速度
 
   constructor() {
     super({ key: 'GameScene' })
@@ -70,15 +72,32 @@ export default class GameScene extends Phaser.Scene {
   }
 
   private handleInput() {
-    // 左右移動
+    const currentVelocityX = this.player.body!.velocity.x
+    const deltaTime = this.game.loop.delta / 1000 // ミリ秒を秒に変換
+
+    // 左右移動（慣性付き）
     if (this.keyStates.A && !this.keyStates.D) {
-      this.player.setVelocityX(-this.speed)
+      // 左に加速
+      const newVelocityX = Math.max(currentVelocityX - this.acceleration * deltaTime, -this.speed)
+      this.player.setVelocityX(newVelocityX)
       this.player.setFlipX(true)
     } else if (this.keyStates.D && !this.keyStates.A) {
-      this.player.setVelocityX(this.speed)
+      // 右に加速
+      const newVelocityX = Math.min(currentVelocityX + this.acceleration * deltaTime, this.speed)
+      this.player.setVelocityX(newVelocityX)
       this.player.setFlipX(false)
     } else {
-      this.player.setVelocityX(0)
+      // キーが押されていない場合は減速
+      if (Math.abs(currentVelocityX) > 0) {
+        const decelAmount = this.deceleration * deltaTime
+        if (currentVelocityX > 0) {
+          const newVelocityX = Math.max(currentVelocityX - decelAmount, 0)
+          this.player.setVelocityX(newVelocityX)
+        } else {
+          const newVelocityX = Math.min(currentVelocityX + decelAmount, 0)
+          this.player.setVelocityX(newVelocityX)
+        }
+      }
     }
 
     // ジャンプ（シンプルな実装）
