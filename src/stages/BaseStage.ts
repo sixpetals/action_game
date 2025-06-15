@@ -34,8 +34,9 @@ export abstract class BaseStage {
   }
 
   createPlatforms(platforms: Phaser.Physics.Arcade.StaticGroup) {
+    const textureName = `ground_stage${this.config.id}`
     this.config.platforms.forEach(platformData => {
-      const platform = platforms.create(platformData.x, platformData.y, 'ground')
+      const platform = platforms.create(platformData.x, platformData.y, textureName)
       platform.setScale(platformData.scaleX, platformData.scaleY).refreshBody()
     })
   }

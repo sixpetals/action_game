@@ -14,8 +14,7 @@ export default class GameScene extends Phaser.Scene {
     A: false,
     D: false,
     W: false,
-    Q: false, // ステージ切り替え用
-    E: false  // ステージ切り替え用
+    Q: false  // ステージセレクトに戻る
   }
   private deceleration = 300  // 減速度
   private acceleration = 600  // 加速度
@@ -24,13 +23,27 @@ export default class GameScene extends Phaser.Scene {
   private stageText!: Phaser.GameObjects.Text
   private platformCollider?: Phaser.Physics.Arcade.Collider
   private stageColliders: Phaser.Physics.Arcade.Collider[] = []
+  private initialStageId?: number
 
   constructor() {
     super({ key: 'GameScene' })
   }
 
+  init(data: { selectedStageId?: number }) {
+    // ステージセレクトから渡されたステージIDを設定
+    if (data.selectedStageId) {
+      this.initialStageId = data.selectedStageId
+    }
+  }
+
   preload() {
     this.stageManager = new StageManager(this)
+    
+    // 初期ステージを設定
+    if (this.initialStageId) {
+      this.stageManager.setStage(this.initialStageId)
+    }
+    
     this.currentStage = this.stageManager.getCurrentStage()
     this.updateBackgroundColor()
     this.createPlayerSprite()
@@ -63,9 +76,6 @@ export default class GameScene extends Phaser.Scene {
         case 'q':
           this.keyStates.Q = true
           break
-        case 'e':
-          this.keyStates.E = true
-          break
       }
     })
 
@@ -82,9 +92,6 @@ export default class GameScene extends Phaser.Scene {
           break
         case 'q':
           this.keyStates.Q = false
-          break
-        case 'e':
-          this.keyStates.E = false
           break
       }
     })
@@ -136,32 +143,43 @@ export default class GameScene extends Phaser.Scene {
       this.keyStates.W = false // 一回だけジャンプ
     }
 
-    // ステージ切り替え
+    // ステージセレクトに戻る
     if (this.keyStates.Q) {
-      this.changeStage(-1) // 前のステージ
       this.keyStates.Q = false
-    }
-    
-    if (this.keyStates.E) {
-      this.changeStage(1) // 次のステージ
-      this.keyStates.E = false
+      this.returnToStageSelect()
     }
   }
 
   private createPlayerSprite() {
-    const graphics = this.add.graphics()
-    graphics.fillStyle(0xFFB3E6) // パステルピンク
-    graphics.fillRect(0, 0, 32, 48)
-    graphics.generateTexture('player', 32, 48)
-    graphics.destroy()
+    if (!this.textures.exists('player')) {
+      const graphics = this.add.graphics()
+      graphics.fillStyle(0xFFB3E6) // パステルピンク
+      graphics.fillRect(0, 0, 32, 48)
+      graphics.generateTexture('player', 32, 48)
+      graphics.destroy()
+    }
   }
 
   private createPlatformSprite() {
-    const graphics = this.add.graphics()
-    graphics.fillStyle(this.currentStage.getConfig().platformColor)
-    graphics.fillRect(0, 0, 400, 32)
-    graphics.generateTexture('ground', 400, 32)
-    graphics.destroy()
+    const stageId = this.currentStage.getConfig().id
+    const textureName = `ground_stage${stageId}`
+    
+    if (!this.textures.exists(textureName)) {
+      const graphics = this.add.graphics()
+      graphics.fillStyle(this.currentStage.getConfig().platformColor)
+      graphics.fillRect(0, 0, 400, 32)
+      graphics.generateTexture(textureName, 400, 32)  
+      graphics.destroy()
+    }
+    
+    // 'ground'テクスチャも作成（ステージのギミックで使用される）
+    if (!this.textures.exists('ground')) {
+      const graphics = this.add.graphics()
+      graphics.fillStyle(this.currentStage.getConfig().platformColor)
+      graphics.fillRect(0, 0, 400, 32)
+      graphics.generateTexture('ground', 400, 32)  
+      graphics.destroy()
+    }
   }
 
   private createPlatforms() {
@@ -199,7 +217,7 @@ export default class GameScene extends Phaser.Scene {
     
     // 操作説明
     this.add.text(16, 50, 
-      'WASD: Move/Jump  Q/E: Change Stage', 
+      'WASD: Move/Jump  Q: Stage Select', 
       {
         fontSize: '14px',
         color: '#333333',
@@ -213,51 +231,6 @@ export default class GameScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor(this.currentStage.getConfig().backgroundColor)
   }
 
-  private changeStage(direction: number) {
-    let newStage: BaseStage | null = null
-    
-    if (direction > 0) {
-      newStage = this.stageManager.nextStage()
-    } else {
-      newStage = this.stageManager.previousStage()
-    }
-    
-    if (newStage) {
-      this.currentStage = newStage
-      this.reloadStage()
-    }
-  }
-
-  private reloadStage() {
-    // 既存のプラットフォームを削除
-    this.platforms.clear(true, true)
-    
-    // 新しいステージの背景色に更新
-    this.updateBackgroundColor()
-    
-    // 新しいプラットフォームテクスチャを作成
-    this.createPlatformSprite()
-    
-    // 新しいプラットフォームを作成
-    this.createPlatforms()
-    
-    // 衝突判定を再設定
-    this.setupCollisions()
-    
-    // プレイヤーを初期位置に戻す
-    this.player.setPosition(100, 450)
-    this.player.setVelocity(0, 0)
-    
-    // 新しいステージのギミックを作成
-    this.currentStage.createGimmicks()
-    
-    // ステージ固有の衝突判定を設定
-    this.setupStageSpecificCollisions()
-    
-    // UIを更新
-    const config = this.currentStage.getConfig()
-    this.stageText.setText(`Stage ${config.id}: ${config.name}`)
-  }
 
   private setupStageSpecificCollisions() {
     // 既存のステージ固有コライダーを削除
@@ -271,6 +244,38 @@ export default class GameScene extends Phaser.Scene {
         const collider = this.physics.add.collider(this.player, movingPlatform)
         this.stageColliders.push(collider)
       }
+    }
+  }
+
+  private returnToStageSelect() {
+    try {
+      // ステージのギミックを破棄
+      if (this.currentStage) {
+        this.currentStage.destroyGimmicks()
+      }
+      
+      // コライダーを破棄
+      this.stageColliders.forEach(collider => {
+        if (collider && !collider.destroyed) {
+          collider.destroy()
+        }
+      })
+      this.stageColliders = []
+      
+      if (this.platformCollider && !this.platformCollider.destroyed) {
+        this.platformCollider.destroy()
+        this.platformCollider = undefined
+      }
+
+      // ツイーンを停止
+      this.tweens.killAll()
+      
+      // シーン遷移
+      this.scene.start('StageSelectScene')
+    } catch (error) {
+      console.error('Error during scene transition:', error)
+      // エラーが発生してもシーンは遷移する
+      this.scene.start('StageSelectScene')
     }
   }
 }

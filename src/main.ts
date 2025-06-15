@@ -1,4 +1,6 @@
 import Phaser from 'phaser'
+import TitleScene from './scenes/TitleScene'
+import StageSelectScene from './scenes/StageSelectScene'
 import GameScene from './scenes/GameScene'
 
 const config: Phaser.Types.Core.GameConfig = {
@@ -13,7 +15,7 @@ const config: Phaser.Types.Core.GameConfig = {
   },
   input: {
     keyboard: {
-      capture: ['W', 'A', 'S', 'D', 'UP', 'DOWN', 'LEFT', 'RIGHT', 'SPACE']
+      capture: ['W', 'A', 'S', 'D', 'UP', 'DOWN', 'LEFT', 'RIGHT', 'SPACE', 'ENTER']
     }
   },
   physics: {
@@ -23,7 +25,7 @@ const config: Phaser.Types.Core.GameConfig = {
       debug: false
     }
   },
-  scene: [GameScene]
+  scene: [TitleScene, StageSelectScene, GameScene]
 }
 
 new Phaser.Game(config)
