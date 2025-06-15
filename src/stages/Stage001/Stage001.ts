@@ -23,7 +23,12 @@ export class Stage001 extends BaseStage {
     // Stage001の特別なギミック: 動くプラットフォーム
     this.movingPlatform = this.scene.physics.add.sprite(300, 300, 'ground')
     this.movingPlatform.setScale(0.4, 1)
+    
+    // 物理設定：重力を無効化し、固定オブジェクトに設定
     this.movingPlatform.body!.setImmovable(true)
+    this.movingPlatform.body!.setGravity(0, -800) // 重力を打ち消す
+    this.movingPlatform.body!.setVelocity(0, 0)   // 初期速度をゼロに
+    
     this.movingPlatform.setTint(0xFFE6CC) // 少し違う色にして区別
     
     // 左右に動くアニメーション
