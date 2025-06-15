@@ -7,9 +7,11 @@ export default class StageSelectScene extends Phaser.Scene {
   private stageItems: { id: number, name: string }[] = []
   private menuTexts: Phaser.GameObjects.Text[] = []
   private selector!: Phaser.GameObjects.Rectangle
-  private upKey!: Phaser.Input.Keyboard.Key
-  private downKey!: Phaser.Input.Keyboard.Key
-  private enterKey!: Phaser.Input.Keyboard.Key
+  private keyStates = {
+    UP: false,
+    DOWN: false,
+    ENTER: false
+  }
 
   constructor() {
     super({ key: 'StageSelectScene' })
@@ -36,10 +38,8 @@ export default class StageSelectScene extends Phaser.Scene {
     this.loadStageList()
     this.createMenu()
 
-    // キー入力設定
-    this.upKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.UP)
-    this.downKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.DOWN)
-    this.enterKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER)
+    // キー入力設定（ネイティブJavaScriptイベント）
+    this.setupControls()
 
     // 操作説明
     this.add.text(this.cameras.main.centerX, this.cameras.main.height - 80, 'UP/DOWN: Select  ENTER: Start Stage', {
@@ -51,18 +51,59 @@ export default class StageSelectScene extends Phaser.Scene {
   }
 
   update() {
-    if (Phaser.Input.Keyboard.JustDown(this.upKey)) {
+    this.handleInput()
+  }
+
+  private setupControls() {
+    // ネイティブのキーボードイベントを使用
+    window.addEventListener('keydown', (event) => {
+      switch(event.key) {
+        case 'ArrowUp':
+          this.keyStates.UP = true
+          break
+        case 'ArrowDown':
+          this.keyStates.DOWN = true
+          break
+        case 'Enter':
+          this.keyStates.ENTER = true
+          break
+      }
+    })
+
+    window.addEventListener('keyup', (event) => {
+      switch(event.key) {
+        case 'ArrowUp':
+          this.keyStates.UP = false
+          break
+        case 'ArrowDown':
+          this.keyStates.DOWN = false
+          break
+        case 'Enter':
+          this.keyStates.ENTER = false
+          break
+      }
+    })
+  }
+
+  private handleInput() {
+    // 上キー（一回だけ処理）
+    if (this.keyStates.UP) {
       this.selectedIndex = Math.max(0, this.selectedIndex - 1)
       this.updateSelection()
+      this.keyStates.UP = false // 一回だけ処理
     }
 
-    if (Phaser.Input.Keyboard.JustDown(this.downKey)) {
+    // 下キー（一回だけ処理）
+    if (this.keyStates.DOWN) {
       this.selectedIndex = Math.min(this.stageItems.length - 1, this.selectedIndex + 1)
       this.updateSelection()
+      this.keyStates.DOWN = false // 一回だけ処理
     }
 
-    if (Phaser.Input.Keyboard.JustDown(this.enterKey)) {
+    // エンターキー（一回だけ処理）
+    if (this.keyStates.ENTER) {
       this.startSelectedStage()
+      this.keyStates.ENTER = false // 一回だけ処理
     }
   }
 
